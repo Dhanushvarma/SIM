@@ -18,17 +18,17 @@ def main():
     processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
     finetuned_model_path = "/home/dhanush/SIM/checkpoints/sam_finetuned_model.pth"
 
-
     # Load your fine-tuned model
     model = SamModel.from_pretrained("facebook/sam-vit-base")
     model.load_state_dict(torch.load(finetuned_model_path, weights_only=True))
-    model.to('cpu')
+    model.to("cpu")
 
     # Create dataset (use the updated CustomSAMDataset class)
     dataset = CustomSAMDataset(coco_data, image_dir, processor)
 
     # Run inference and visualize
-    run_inference_and_visualize(model, dataset, 'cpu', output_dir, num_samples=20)
+    run_inference_and_visualize(model, dataset, "cpu", output_dir, num_samples=20)
+
 
 if __name__ == "__main__":
     main()

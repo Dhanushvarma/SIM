@@ -9,15 +9,26 @@ from utils.sam_dataset import CustomSAMDataset
 from utils.common import read_json
 
 
-
 class SAMTrainer:
-    def __init__(self, model_name, coco_data, image_dir, batch_size=2, learning_rate=1e-5, num_epochs=10):
+    def __init__(
+        self,
+        model_name,
+        coco_data,
+        image_dir,
+        batch_size=2,
+        learning_rate=1e-5,
+        num_epochs=10,
+    ):
         self.processor = SamProcessor.from_pretrained(model_name)
         self.model = SamModel.from_pretrained(model_name)
         self.dataset = CustomSAMDataset(coco_data, image_dir, self.processor)
         self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=True)
-        self.optimizer = Adam(self.model.mask_decoder.parameters(), lr=learning_rate, weight_decay=0)
-        self.loss_fn = monai.losses.DiceCELoss(sigmoid=True, squared_pred=True, reduction='mean')
+        self.optimizer = Adam(
+            self.model.mask_decoder.parameters(), lr=learning_rate, weight_decay=0
+        )
+        self.loss_fn = monai.losses.DiceCELoss(
+            sigmoid=True, squared_pred=True, reduction="mean"
+        )
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device("cpu")
         self.num_epochs = num_epochs
@@ -38,12 +49,21 @@ class SAMTrainer:
             for batch in self.dataloader:
                 loss = self.train_step(batch)
                 epoch_loss += loss.item()
-            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {epoch_loss/len(self.dataloader)}")
+            print(
+                f"Epoch {epoch+1}/{self.num_epochs}, Loss: {epoch_loss/len(self.dataloader)}"
+            )
 
     def train_step(self, batch):
-        inputs = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-        outputs = self.model(pixel_values=inputs["pixel_values"], multimask_output=False)
-        predicted_masks, ground_truth_masks = self.prepare_masks(outputs.pred_masks, inputs["ground_truth_masks"])
+        inputs = {
+            k: v.to(self.device) if isinstance(v, torch.Tensor) else v
+            for k, v in batch.items()
+        }
+        outputs = self.model(
+            pixel_values=inputs["pixel_values"], multimask_output=False
+        )
+        predicted_masks, ground_truth_masks = self.prepare_masks(
+            outputs.pred_masks, inputs["ground_truth_masks"]
+        )
         loss = self.loss_fn(predicted_masks, ground_truth_masks)
         self.optimizer.zero_grad()
         loss.backward()
@@ -53,11 +73,11 @@ class SAMTrainer:
     def prepare_masks(self, predicted_masks, ground_truth_masks):
         # Convert boolean tensor to float
         ground_truth_masks = ground_truth_masks.float()
-        
+
         if ground_truth_masks.shape[-2:] != predicted_masks.shape[-2:]:
-            ground_truth_masks = interpolate(ground_truth_masks,
-                                             size=predicted_masks.shape[-2:],
-                                             mode='nearest')
+            ground_truth_masks = interpolate(
+                ground_truth_masks, size=predicted_masks.shape[-2:], mode="nearest"
+            )
         num_categories = ground_truth_masks.shape[1]
         predicted_masks = predicted_masks.squeeze(2).repeat(1, num_categories, 1, 1)
         return predicted_masks, ground_truth_masks
@@ -72,11 +92,12 @@ def main():
     image_dir = "/home/dhanush/SIM/data/rgb_10"
 
     coco_data = read_json(coco_file_path)
-    
+
     trainer = SAMTrainer(model_name, coco_data, image_dir)
     trainer.prepare_model()
     trainer.train()
     trainer.save_model("sam_finetuned_model.pth")
+
 
 if __name__ == "__main__":
     main()
